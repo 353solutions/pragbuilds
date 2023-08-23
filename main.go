@@ -26,6 +26,13 @@ func main() {
 		log.Fatalf("error: no gmail credentials")
 	}
 
+	histFile := "notifications.json"
+	hist, err := OpenDB(histFile)
+	if err != nil {
+		log.Fatalf("error: can't open history at %q - %s", histFile, err)
+	}
+	defer hist.Close()
+
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
@@ -42,7 +49,7 @@ func main() {
 	log.Printf("info: %d builds", len(builds))
 
 	s := GmailSender{gmail_user, gmail_passwd}
-	if err := notify(context.Background(), builds, db, s); err != nil {
+	if err := notify(context.Background(), builds, db, hist, s); err != nil {
 		log.Fatalf("error: can't notify - %s", err)
 	}
 }
@@ -67,7 +74,7 @@ func fetchBuilds(ctx context.Context, user, passwd string) (io.ReadCloser, error
 	return resp.Body, nil
 }
 
-func notify(ctx context.Context, builds []Build, observers map[string][]string, sender Sender) error {
+func notify(ctx context.Context, builds []Build, observers map[string][]string, hist *DB, sender Sender) error {
 	var errs []error
 	for _, b := range builds {
 		if !b.Failed {
@@ -77,11 +84,16 @@ func notify(ctx context.Context, builds []Build, observers map[string][]string, 
 		for _, email := range observers[b.Name] {
 			// FIXME: Don't double notify
 			log.Printf("INFO: Notifying %q on %+v", email, b)
+			if hist.Has(b.ID, email) {
+				log.Print("INFO: Skipping (already sent)")
+				continue
+			}
 			content := formatEmail(email, b)
 			if err := sender.Send(ctx, email, content); err != nil {
 				log.Printf("ERROR: can't email %q - %s", email, err)
 				errs = append(errs, err)
 			}
+			hist.Add(b.ID, email)
 		}
 	}
 
