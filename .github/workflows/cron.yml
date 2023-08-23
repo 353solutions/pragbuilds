@@ -26,6 +26,4 @@ jobs:
       run: go run .
 
     - name: Save Notifications
-      run: |
-          git config user.name "GitHub Actions Bot"
-          git config user.email "<>"
+      run: ./commit-history.sh
