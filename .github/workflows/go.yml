@@ -1,13 +1,8 @@
-# This workflow will build a golang project
-# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
-
 name: Go
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  schedule:
+    - cron: '17 * * * *'
 
 jobs:
 
@@ -22,4 +17,9 @@ jobs:
         go-version: '1.20'
 
     - name: Build
+      env:
+        PRAG_USER: ${{ secrets.PRAG_USER }}
+        PRAG_PASSWD: ${{ secrets.PRAG_PASSWD }}
+        GMAIL_USER: ${{ secrets.GMAIL_USER }}
+        GMAIL_PASSWD: ${{ secrets.GMAIL_PASSWD }}
       run: go run .

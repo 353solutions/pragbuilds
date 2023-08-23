@@ -98,10 +98,11 @@ type GmailSender struct {
 }
 
 func (s GmailSender) Send(ctx context.Context, to, content string) error {
+	auth := LoginAuth(s.user, s.passwd)
 	// FIXME
 	return smtp.SendMail(
 		"smtp.gmail.com:587",
-		smtp.PlainAuth("", s.user, s.passwd, "smtp.gmail.com"),
+		auth,
 		s.user,
 		[]string{to},
 		[]byte(content),
@@ -114,8 +115,7 @@ Subject: [pragbuilds bot] %q build %d failed
 
 Hi There,
 
-I'm sorry to inform you that build %d of %q failed.
-
+I'm sorry to inform you that build %d of %q has failed.
 You can see the logs at https://portal.pragprog.com/build_statuses/%d/log.
 
 Onward and upward,
@@ -127,9 +127,36 @@ func formatEmail(to string, build Build) string {
 		emailTemplate,
 		to,
 		build.Name, build.ID, // subject
-		build.Name, build.ID, build.ID, // body
+		build.ID, build.Name, build.ID, // body
 	)
 	return text
+}
+
+// https://gist.github.com/jpillora/cb46d183eca0710d909a?permalink_comment_id=3519541
+type loginAuth struct {
+	username, password string
+}
+
+func LoginAuth(username, password string) smtp.Auth {
+	return &loginAuth{username, password}
+}
+
+func (a *loginAuth) Start(server *smtp.ServerInfo) (string, []byte, error) {
+	return "LOGIN", []byte{}, nil
+}
+
+func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
+	if more {
+		switch string(fromServer) {
+		case "Username:":
+			return []byte(a.username), nil
+		case "Password:":
+			return []byte(a.password), nil
+		default:
+			return nil, errors.New("Unkown fromServer")
+		}
+	}
+	return nil, nil
 }
 
 // Poor man's database
