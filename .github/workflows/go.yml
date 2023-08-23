@@ -1,9 +1,9 @@
 name: Go
 
 on:
-  - schedule:
+  schedule:
     - cron: '17 * * * *'
-  - workflow_dispatch:
+  workflow_dispatch:
 
 jobs:
 
