@@ -55,7 +55,9 @@ func Test_nofity(t *testing.T) {
 	}
 
 	var s MockSender
-	notify(context.Background(), builds, observers, &s)
+	db, err := OpenDB("/dev/null")
+	require.NoError(t, err, "db")
+	notify(context.Background(), builds, observers, db, &s)
 	require.Equal(t, 3, len(s.emails), "email count")
 }
 
