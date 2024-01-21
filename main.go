@@ -15,7 +15,7 @@ import (
 func main() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
-	log.Printf("INFO: getting builds")
+	log.Printf("info: getting builds")
 	prag_user, prag_passwd := os.Getenv("PRAG_USER"), os.Getenv("PRAG_PASSWD")
 	if prag_user == "" || prag_passwd == "" {
 		log.Fatalf("error: no pragmatic credentials")
@@ -48,7 +48,12 @@ func main() {
 	}
 	log.Printf("info: %d builds", len(builds))
 
-	s := GmailSender{gmail_user, gmail_passwd}
+	var s Sender
+	if os.Getenv("DEBUG") != "" {
+		s = debugSender{}
+	} else {
+		s = GmailSender{gmail_user, gmail_passwd}
+	}
 	if err := notify(context.Background(), builds, db, hist, s); err != nil {
 		log.Fatalf("error: can't notify - %s", err)
 	}
@@ -83,14 +88,14 @@ func notify(ctx context.Context, builds []Build, observers map[string][]string, 
 
 		for _, email := range observers[b.Name] {
 			// FIXME: Don't double notify
-			log.Printf("INFO: Notifying %q on %+v", email, b)
+			log.Printf("info: Notifying %q on %+v", email, b)
 			if hist.Has(b.ID, email) {
-				log.Print("INFO: Skipping (already sent)")
+				log.Print("info: Skipping (already sent)")
 				continue
 			}
 			content := formatEmail(email, b)
 			if err := sender.Send(ctx, email, content); err != nil {
-				log.Printf("ERROR: can't email %q - %s", email, err)
+				log.Printf("error: can't email %q - %s", email, err)
 				errs = append(errs, err)
 			}
 			hist.Add(b.ID, email)
@@ -102,6 +107,13 @@ func notify(ctx context.Context, builds []Build, observers map[string][]string, 
 
 type Sender interface {
 	Send(ctx context.Context, to, content string) error
+}
+
+type debugSender struct{}
+
+func (s debugSender) Send(ctx context.Context, to, content string) error {
+	log.Printf("info: sending to %s\n%s", to, content)
+	return nil
 }
 
 type GmailSender struct {
