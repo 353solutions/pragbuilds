@@ -185,5 +185,6 @@ func (a *loginAuth) Next(fromServer []byte, more bool) ([]byte, error) {
 
 // Poor man's database
 var db = map[string][]string{
-	"Effective Go Recipes": {"miki@353solutions.com"},
+	"Effective Go Recipes":     {"miki@353solutions.com"},
+	"Go Optimization Handbook": {"miki@353solutions.com"},
 }

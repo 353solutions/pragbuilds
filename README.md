@@ -16,6 +16,9 @@ export GMAIL_PASSWD=XXX
 
 [ps]: https://portal.pragprog.com/build_statuses
 
+## Get Notified
+
+To add another book, edit `db` in `main.go`.
 
 ## Debugging
 
