@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/smtp"
 	"os"
@@ -13,23 +13,24 @@ import (
 )
 
 func main() {
-	log.SetFlags(log.LstdFlags | log.Lshortfile)
-
-	log.Printf("info: getting builds")
+	slog.Info("getting builds")
 	prag_user, prag_passwd := os.Getenv("PRAG_USER"), os.Getenv("PRAG_PASSWD")
 	if prag_user == "" || prag_passwd == "" {
-		log.Fatalf("error: no pragmatic credentials")
+		fmt.Fprintf(os.Stderr, "error: no pragmatic credentials")
+		os.Exit(1)
 	}
 
 	gmail_user, gmail_passwd := os.Getenv("GMAIL_USER"), os.Getenv("GMAIL_PASSWD")
 	if gmail_user == "" || gmail_passwd == "" {
-		log.Fatalf("error: no gmail credentials")
+		fmt.Fprintln(os.Stderr, "error: no gmail credentials")
+		os.Exit(1)
 	}
 
 	histFile := "notifications.json"
 	hist, err := OpenDB(histFile)
 	if err != nil {
-		log.Fatalf("error: can't open history at %q - %s", histFile, err)
+		fmt.Fprintf(os.Stderr, "error: can't open history at %q - %s", histFile, err)
+		os.Exit(1)
 	}
 	defer hist.Close()
 
@@ -38,15 +39,17 @@ func main() {
 
 	rc, err := fetchBuilds(ctx, prag_user, prag_passwd)
 	if err != nil {
-		log.Fatalf("error: fetch builds - %s", err)
+		fmt.Fprintf(os.Stderr, "error: fetch builds - %s", err)
+		os.Exit(1)
 	}
 	defer rc.Close()
 
 	builds, err := parseHTML(rc)
 	if err != nil {
-		log.Fatalf("error: can't parse HTML - %s", err)
+		fmt.Fprintf(os.Stderr, "error: can't parse HTML - %s", err)
+		os.Exit(1)
 	}
-	log.Printf("info: %d builds", len(builds))
+	slog.Info("builds", "count", len(builds))
 
 	var s Sender
 	if os.Getenv("DEBUG") != "" {
@@ -55,13 +58,29 @@ func main() {
 		s = GmailSender{gmail_user, gmail_passwd}
 	}
 	if err := notify(context.Background(), builds, db, hist, s); err != nil {
-		log.Fatalf("error: can't notify - %s", err)
+		fmt.Fprintf(os.Stderr, "error: can't notify - %s", err)
+		os.Exit(1)
 	}
 }
 
 const buildsURL = "https://portal.pragprog.com/build_statuses"
 
 func fetchBuilds(ctx context.Context, user, passwd string) (io.ReadCloser, error) {
+	var r io.ReadCloser
+	var err error
+	for i := range 3 {
+		r, err = fetchBuildsOnce(ctx, user, passwd)
+		if err == nil {
+			return r, nil
+		}
+		slog.Warn("can't fetch builds", "try", i+1, "error", err)
+		time.Sleep(time.Second)
+	}
+
+	return nil, err
+}
+
+func fetchBuildsOnce(ctx context.Context, user, passwd string) (io.ReadCloser, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildsURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("can't build request for %q - %w", buildsURL, err)
@@ -88,14 +107,14 @@ func notify(ctx context.Context, builds []Build, observers map[string][]string, 
 
 		for _, email := range observers[b.Name] {
 			// FIXME: Don't double notify
-			log.Printf("info: Notifying %q on %+v", email, b)
+			slog.Info("notifying %q on %+v", email, b)
 			if hist.Has(b.ID, email) {
-				log.Print("info: Skipping (already sent)")
+				slog.Info("skipping (already sent)")
 				continue
 			}
 			content := formatEmail(email, b)
 			if err := sender.Send(ctx, email, content); err != nil {
-				log.Printf("error: can't email %q - %s", email, err)
+				slog.Error("can't email", "email", email, "error", err)
 				errs = append(errs, err)
 			}
 			hist.Add(b.ID, email)
@@ -112,7 +131,7 @@ type Sender interface {
 type debugSender struct{}
 
 func (s debugSender) Send(ctx context.Context, to, content string) error {
-	log.Printf("info: sending to %s\n%s", to, content)
+	slog.Info("sending", "email", to, "content", content)
 	return nil
 }
 
