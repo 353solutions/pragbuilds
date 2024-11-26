@@ -10,20 +10,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
 
-    - name: Build
-      env:
-        PRAG_USER: ${{ secrets.PRAG_USER }}
-        PRAG_PASSWD: ${{ secrets.PRAG_PASSWD }}
-        GMAIL_USER: ${{ secrets.GMAIL_USER }}
-        GMAIL_PASSWD: ${{ secrets.GMAIL_PASSWD }}
-      run: go run .
+      - name: Build
+        env:
+          PRAG_USER: ${{ secrets.PRAG_USER }}
+          PRAG_PASSWD: ${{ secrets.PRAG_PASSWD }}
+          GMAIL_USER: ${{ secrets.GMAIL_USER }}
+          GMAIL_PASSWD: ${{ secrets.GMAIL_PASSWD }}
+        run: go run .
 
-    - name: Save Notifications
-      run: ./commit-history.sh
+      - name: Save Notifications
+        run: ./commit-history.sh
