@@ -1,8 +1,8 @@
 name: Builds
 
 on:
-  schedule:
-    - cron: '17 * * * *'
+#  schedule:
+#    - cron: '17 * * * *'
   workflow_dispatch:
 
 jobs:
